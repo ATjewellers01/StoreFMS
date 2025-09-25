@@ -163,6 +163,7 @@ export type MasterSheet = {
     companyPan: string;
     destinationAddress: string;
     defaultTerms: string[];
+    approveVendorNames: string[];
 };
 
 export type UserPermissions = {
@@ -208,3 +209,34 @@ export const allPermissionKeys = [
     "ordersView",
     "poMaster",
 ] as const;
+
+
+export interface UserSheet {
+    username?: string;
+    name?: string;
+    password?: string;
+    rowIndex?: number;
+    sheetName?: string;
+    
+    // Change to string to match your filter logic
+    administrate?: string; // 'No Access' or other values
+    createIndent?: string;
+    createPo?: string;
+    getPurchase?: string;
+    indentApprovalAction?: string;
+    indentApprovalView?: string;
+    ordersView?: string;
+    pendingIndentsView?: string;
+    receiveItemAction?: string;
+    receiveItemView?: string;
+    storeOutApprovalAction?: string;
+    storeOutApprovalView?: string;
+    threePartyApprovalAction?: string;
+    threePartyApprovalView?: string;
+    updateVendorAction?: string;
+    updateVendorView?: string;
+    
+    [key: string]: any;
+}
+
+

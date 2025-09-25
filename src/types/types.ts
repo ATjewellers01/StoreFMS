@@ -33,4 +33,5 @@ export interface PoMasterSheet {
     // Add these if they're required
     discountPercent?: number;
     gstPercent?: number;
+    
 }

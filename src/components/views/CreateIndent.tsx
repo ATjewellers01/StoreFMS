@@ -27,7 +27,7 @@ export default () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [searchTermGroupHead, setSearchTermGroupHead] = useState("");
     const [searchTermProductName, setSearchTermProductName] = useState("");
-
+const [searchTermApprovedBy, setSearchTermApprovedBy] = useState("");
     useEffect(() => {
         setIndentSheet(sheet);
     }, [sheet]);
@@ -58,6 +58,7 @@ export default () => {
             indenterName: '',
             indentApproveBy: '',
             indentType: undefined,
+            approveVendorNames:'',
             products: [
                 {
                     attachment: undefined,
@@ -96,6 +97,7 @@ export default () => {
                     specifications: product.specifications || '',
                     indentApprovedBy: data.indentApproveBy,
                     indentType: data.indentType,
+                    approveVendorNames:data.approveVendorNames,
                 };
 
                 if (product.attachment !== undefined) {
@@ -185,21 +187,49 @@ export default () => {
                             )}
                         />
 
-                        <FormField
-                            control={form.control}
-                            name="indentApproveBy"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>
-                                        Approved By
-                                        <span className="text-destructive">*</span>
-                                    </FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="Enter approved by" {...field} />
-                                    </FormControl>
-                                </FormItem>
-                            )}
+   <FormField
+    control={form.control}
+    name="indentApproveBy"
+    render={({ field }) => (
+        <FormItem>
+            <FormLabel>
+                Approved By
+                <span className="text-destructive">*</span>
+            </FormLabel>
+            <Select onValueChange={field.onChange} value={field.value}>
+                <FormControl>
+                    <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select approved by" />
+                    </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                    {/* 🔍 Search Box */}
+                    <div className="flex items-center border-b px-3 pb-3">
+                        <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                        <input
+                            placeholder="Search approved by..."
+                            value={searchTermApprovedBy}
+                            onChange={(e) => setSearchTermApprovedBy(e.target.value)}
+                            onKeyDown={(e) => e.stopPropagation()}
+                            className="flex h-10 w-full rounded-md border-0 bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
                         />
+                    </div>
+
+                    {/* Filtered List */}
+                    {options?.approveVendorNames
+                        ?.filter((name) =>
+                            name.toLowerCase().includes(searchTermApprovedBy.toLowerCase())
+                        )
+                        .map((name, i) => (
+                            <SelectItem key={i} value={name}>
+                                {name}
+                            </SelectItem>
+                        ))}
+                </SelectContent>
+            </Select>
+        </FormItem>
+    )}
+/>
                     </div>
 
                     <div className="space-y-4">
