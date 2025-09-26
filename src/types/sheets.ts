@@ -235,7 +235,7 @@ export interface UserSheet {
     threePartyApprovalView?: string;
     updateVendorAction?: string;
     updateVendorView?: string;
-    
+    userPermission?:string;
     [key: string]: any;
 }
 

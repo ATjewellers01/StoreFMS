@@ -32,25 +32,25 @@ const [searchTermApprovedBy, setSearchTermApprovedBy] = useState("");
         setIndentSheet(sheet);
     }, [sheet]);
 
-    const schema = z.object({
-        indenterName: z.string().nonempty(),
-        indentApproveBy: z.string().nonempty(),
-        indentType: z.enum(['Purchase', 'Store Out'], { required_error: 'Select a status' }),
-        products: z
-            .array(
-                z.object({
-                    department: z.string().nonempty(),
-                    groupHead: z.string().nonempty(),
-                    productName: z.string().nonempty(),
-                    quantity: z.coerce.number().gt(0, 'Must be greater than 0'),
-                    uom: z.string().nonempty(),
-                    areaOfUse: z.string().nonempty(),
-                    attachment: z.instanceof(File).optional(),
-                    specifications: z.string().optional(),
-                })
-            )
-            .min(1, 'At least one product is required'),
-    });
+   const schema = z.object({
+  indenterName: z.string().nonempty(),
+  indentApproveBy: z.string().nonempty(),
+  indentType: z.enum(['Purchase', 'Store Out']),
+  approveVendorNames: z.string().optional(), // ✅ added
+  products: z.array(
+    z.object({
+      department: z.string().nonempty(),
+      groupHead: z.string().nonempty(),
+      productName: z.string().nonempty(),
+      quantity: z.coerce.number().gt(0, 'Must be greater than 0'),
+      uom: z.string().nonempty(),
+      areaOfUse: z.string().nonempty(),
+      attachment: z.instanceof(File).optional(),
+      specifications: z.string().optional(),
+    })
+  ).min(1, 'At least one product is required'),
+});
+
 
     const form = useForm({
         resolver: zodResolver(schema),
@@ -97,7 +97,7 @@ const [searchTermApprovedBy, setSearchTermApprovedBy] = useState("");
                     specifications: product.specifications || '',
                     indentApprovedBy: data.indentApproveBy,
                     indentType: data.indentType,
-                    approveVendorNames:data.approveVendorNames,
+                    approvedVendorName: data.approveVendorNames,
                 };
 
                 if (product.attachment !== undefined) {

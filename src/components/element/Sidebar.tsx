@@ -129,8 +129,6 @@
 
 // };
 
-
-
 import {
     Sidebar,
     SidebarContent,
@@ -156,32 +154,50 @@ export default ({ items }: { items: RouteAttributes[] }) => {
     const { indentSheet, updateAll, allLoading } = useSheets();
     const { user, logout } = useAuth();
 
-    // Memoize the permission checking function to avoid re-creation on every render
-    const hasPermission = useMemo(() => {
-        return (routeItem: RouteAttributes) => {
-            // Map actual route paths to UserSheet permission keys
-            const pathToPermissionMap: Record<string, keyof UserSheet> = {
-                'administration': 'administrate',
-                'create-indent': 'createIndent',
-                'create-po': 'createPo',
-                'get-purchase': 'getPurchase',
-                'approve-indent': 'indentApprovalView',
-                'po-history': 'ordersView',
-                'pending-pos': 'pendingIndentsView',
-                'receive-items': 'receiveItemView',
-                'store-out-approval': 'storeOutApprovalView',
-                'three-party-approval': 'threePartyApprovalView',
-                'vendor-rate-update': 'updateVendorView',
-            };
-
-            const permissionKey = pathToPermissionMap[routeItem.path];
-            if (!permissionKey) return true; // Show by default if no mapping found
-            
-            // Check if user has 'TRUE' value for this permission
-            const userPermission = user?.[permissionKey];
-            return userPermission === true || userPermission === 'TRUE' || userPermission?.toString().toUpperCase() === 'TRUE';
+   // Memoize the permission checking function to avoid re-creation on every render
+// Fix the permission checking logic
+const hasPermission = useMemo(() => {
+    return (routeItem: RouteAttributes) => {
+        // Map actual route paths to UserSheet permission keys
+        const pathToPermissionMap: Record<string, keyof UserSheet> = {
+            'administration': 'administrate',
+            'create-indent': 'createIndent',
+            'create-po': 'createPo',
+            'get-purchase': 'getPurchase',
+            'approve-indent': 'indentApprovalView',
+            'po-history': 'ordersView',
+            'pending-pos': 'pendingIndentsView',
+            'receive-items': 'receiveItemView',
+            'store-out-approval': 'storeOutApprovalView',
+            'three-party-approval': 'threePartyApprovalView',
+            'vendor-rate-update': 'updateVendorView',
         };
-    }, [user]);
+
+        const permissionKey = pathToPermissionMap[routeItem.path];
+        if (!permissionKey) return true; // Show by default if no mapping found
+        
+        // Fix: Handle both string and boolean values safely with type assertion
+        const userPermission = (user as any)?.[permissionKey];
+        
+        // Handle string values like 'TRUE', 'FALSE', 'No Access'
+        if (typeof userPermission === 'string') {
+            return userPermission.toUpperCase() === 'TRUE';
+        }
+        
+        // Handle boolean values
+        if (typeof userPermission === 'boolean') {
+            return userPermission;
+        }
+        
+        // Handle numbers (0 = false, 1 = true) or other types
+        if (typeof userPermission === 'number') {
+            return userPermission !== 0;
+        }
+        
+        // Default to false if undefined or null
+        return false;
+    };
+}, [user]);
 
     // Memoize filtered items to prevent unnecessary re-renders
     const filteredItems = useMemo(() => {
@@ -189,7 +205,7 @@ export default ({ items }: { items: RouteAttributes[] }) => {
         
         return items.filter((item) => {
             // First check existing gateKey condition
-            if (item.gateKey && user[item.gateKey] === 'No Access') {
+            if (item.gateKey && (user as any)[item.gateKey] === 'No Access') {
                 return false;
             }
             

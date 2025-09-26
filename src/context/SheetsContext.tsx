@@ -210,15 +210,18 @@ export const SheetsProvider = ({ children }: { children: React.ReactNode }) => {
     //         setMasterSheet(res as MasterSheet);
     //     });
     // }
-    function updateMasterSheet() {
+ function updateMasterSheet() {
     fetchSheet('MASTER').then((res) => {
         console.log('Master sheet response:', res);
         
-        // Ab backend se directly approveVendorNames aa jayega
-        let approveVendorNames = [];
+        // Type guard to ensure res is MasterSheet
+        const masterSheetData = res as MasterSheet;
         
-        if (res && res.approveVendorNames && Array.isArray(res.approveVendorNames)) {
-            approveVendorNames = res.approveVendorNames
+        // Ab backend se directly approveVendorNames aa jayega
+        let approveVendorNames: string[] = [];
+        
+        if (masterSheetData && masterSheetData.approveVendorNames && Array.isArray(masterSheetData.approveVendorNames)) {
+            approveVendorNames = masterSheetData.approveVendorNames
                 .filter(name => name && name.trim() !== '')
                 .filter((name, index, arr) => arr.indexOf(name) === index);
         }
@@ -226,7 +229,7 @@ export const SheetsProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('Approve vendor names from column S:', approveVendorNames);
 
         setMasterSheet({
-            ...res,
+            ...masterSheetData,
             approveVendorNames
         } as MasterSheet);
     }).catch(error => {
