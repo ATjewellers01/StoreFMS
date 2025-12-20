@@ -1,4 +1,4 @@
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 
 const styles = StyleSheet.create({
     page: {
@@ -12,16 +12,15 @@ const styles = StyleSheet.create({
         paddingBottom: '10px',
     },
     header: {
-        textAlign: 'center',
-        gap: '2',
-        justifyContent: 'center',
+        flexDirection: 'row',
         alignItems: 'center',
-        fontWeight: 'bold',
         backgroundColor: "#cfe2f3",
         paddingVertical: "12px",
+        paddingHorizontal: "20px",
+        gap: 20,
     },
     companyName: {
-        fontSize: '1.2rem',
+        fontSize: '2rem',
         maxWidth: '30rem',
     },
     divider: {
@@ -233,6 +232,7 @@ export interface POPdfProps {
     terms: string[];
     preparedBy: string;
     approvedBy: string;
+    companyLogo?: string;
 }
 
 export default ({
@@ -260,16 +260,25 @@ export default ({
     terms,
     preparedBy,
     approvedBy,
+    companyLogo,
 }: POPdfProps) => {
     return (
         <Document>
             <Page size="A4" style={styles.page}>
                 <View style={styles.mainContainer}>
                     <View>
-                        <View style={styles.header}>
-                            <Text style={styles.companyName}>{companyName}</Text>
-                            <Text>{companyAddress}</Text>
-                            <Text>Phone: +{companyPhone}</Text>
+                        <View style={{ ...styles.header, flexDirection: 'row', padding: '10px' }}>
+                            {companyLogo && (
+                                <Image
+                                    src={companyLogo}
+                                    style={{ width: 80, height: 80, objectFit: 'contain' }}
+                                />
+                            )}
+                            <View style={{ flex: 1, alignItems: 'center' }}>
+                                <Text style={styles.companyName}>{companyName}</Text>
+                                <Text style={{ fontSize: 12 }}>{companyAddress}</Text>
+                                <Text style={{ fontSize: 12 }}>Phone: +{companyPhone}</Text>
+                            </View>
                         </View>
 
                         <View style={styles.divider} />
