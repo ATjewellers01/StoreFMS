@@ -2046,6 +2046,7 @@ export default () => {
                                                     placeholder="Enter message"
                                                     className="resize-y" // or "resize-y" to allow vertical resizing
                                                     {...field}
+                                                    value={field.value || ''}
                                                 />
                                             </FormControl>
                                         </FormItem>
