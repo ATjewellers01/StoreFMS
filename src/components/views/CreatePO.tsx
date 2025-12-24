@@ -1261,7 +1261,7 @@ export default () => {
         poDate: z.coerce.date(),
         supplierName: z.string().nonempty(),
         supplierAddress: z.string().nonempty(),
-        gstin: z.string().nonempty(),
+        gstin: z.string().optional(),
         quotationNumber: z.string(),
         quotationDate: z.coerce.date(),
         ourEnqNo: z.string(),
@@ -1276,8 +1276,8 @@ export default () => {
                 })
             ),
         terms: z.array(z.string().nonempty()).max(10),
-        preparedBy: z.string().nonempty(),
-        approvedBy: z.string().nonempty(),
+        preparedBy: z.string().optional(),
+        approvedBy: z.string().optional(),
     });
 
     type FormData = z.infer<typeof schema>;
@@ -1288,9 +1288,9 @@ export default () => {
             poDate: new Date(),
             supplierName: '',
             supplierAddress: '',
-            preparedBy: '',
-            approvedBy: '',
-            gstin: '',
+            preparedBy: undefined,
+            approvedBy: undefined,
+            gstin: undefined,
             quotationNumber: '',
             quotationDate: new Date(),
             ourEnqNo: '',
