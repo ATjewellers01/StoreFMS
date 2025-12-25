@@ -1454,7 +1454,7 @@ export default () => {
                     ? values.poNumber
                     : incrementPoRevision(values.poNumber, poMasterSheet);
             const grandTotal = calculateGrandTotal(
-                values.indents.map((indent) => {
+                (values.indents || []).map((indent) => {
                     const value = indentSheet.find((i) => i.indentNumber === indent.indentNumber);
                     return {
                         quantity: value?.approvedQuantity || 0,
@@ -1485,15 +1485,15 @@ export default () => {
                 destinationAddress: destinationAddress, // Use the editable destination address
                 supplierName: values.supplierName,
                 supplierAddress: values.supplierAddress,
-                supplierGstin: values.gstin,
+                supplierGstin: values.gstin || '',
                 orderNumber: poNumber,
                 orderDate: formatDate(values.poDate),
                 quotationNumber: values.quotationNumber || '',
-                quotationDate: formatDate(values.quotationDate),
+                quotationDate: values.quotationDate ? formatDate(values.quotationDate) : '',
                 enqNo: values.ourEnqNo || '',
                 enqDate: values.enquiryDate ? formatDate(values.enquiryDate) : '',
                 description: values.description || '',
-                items: values.indents.map((item) => {
+                items: (values.indents || []).map((item) => {
                     const indent = indentSheet.find((i) => i.indentNumber === item.indentNumber)!;
                     return {
                         internalCode: indent.indentNumber,
@@ -1513,7 +1513,7 @@ export default () => {
                     };
                 }),
                 total: calculateSubtotal(
-                    values.indents.map((indent) => {
+                    (values.indents || []).map((indent) => {
                         const value = indentSheet.find(
                             (i) => i.indentNumber === indent.indentNumber
                         );
@@ -1525,7 +1525,7 @@ export default () => {
                     })
                 ),
                 gstAmount: calculateTotalGst(
-                    values.indents.map((indent) => {
+                    (values.indents || []).map((indent) => {
                         const value = indentSheet.find(
                             (i) => i.indentNumber === indent.indentNumber
                         );
@@ -1539,8 +1539,8 @@ export default () => {
                 ),
                 grandTotal: grandTotal,
                 terms: values.terms,
-                preparedBy: values.preparedBy,
-                approvedBy: values.approvedBy,
+                preparedBy: values.preparedBy || '',
+                approvedBy: values.approvedBy || '',
             };
 
             const blob = await pdf(<POPdf {...pdfProps} />).toBlob();
@@ -1566,7 +1566,7 @@ export default () => {
                 toast.warning("Supplier's Email was not found! PO saved but not sent.");
             }
 
-            const rows: PoMasterSheet[] = values.indents.map((v) => {
+            const rows: PoMasterSheet[] = (values.indents || []).map((v) => {
                 const indent = indentSheet.find((i) => i.indentNumber === v.indentNumber)!;
                 return {
                     timestamp: values.poDate.toISOString(),
@@ -1588,10 +1588,10 @@ export default () => {
                     ),
                     totalPoAmount: grandTotal,
                     pdf: url,
-                    preparedBy: values.preparedBy,
-                    approvedBy: values.approvedBy,
+                    preparedBy: values.preparedBy || '',
+                    approvedBy: values.approvedBy || '',
                     quotationNumber: values.quotationNumber || '',
-                    quotationDate: values.quotationDate.toISOString(),
+                    quotationDate:values.quotationDate ? values.quotationDate.toISOString() : '',
                     enquiryNumber: values.ourEnqNo || '',
                     enquiryDate: values.enquiryDate ? values.enquiryDate.toISOString() : '',
                     term1: values.terms[0],
@@ -2078,7 +2078,7 @@ export default () => {
                                         </TableHeader>
                                         <TableBody>
                                             {itemsArray.fields.map((field, index) => {
-                                                const value = indents[index];
+                                                const value = (indents || [])[index];
                                                 const indent = indentSheet.find(
                                                     (i) => i.indentNumber === value.indentNumber
                                                 );
@@ -2180,7 +2180,7 @@ export default () => {
                                             <span>Total:</span>
                                             <span className="text-end">
                                                 {calculateSubtotal(
-                                                    indents.map((indent) => {
+                                                    (indents || []).map((indent) => {
                                                         const value = indentSheet.find(
                                                             (i) =>
                                                                 i.indentNumber ===
@@ -2200,7 +2200,7 @@ export default () => {
                                             <span>GST Amount:</span>
                                             <span className="text-end">
                                                 {calculateTotalGst(
-                                                    indents.map((indent) => {
+                                                    (indents || []).map((indent) => {
                                                         const value = indentSheet.find(
                                                             (i) =>
                                                                 i.indentNumber ===
@@ -2221,7 +2221,7 @@ export default () => {
                                             <span>Grand Total:</span>
                                             <span className="text-end">
                                                 {calculateGrandTotal(
-                                                    indents.map((indent) => {
+                                                    (indents || []).map((indent) => {
                                                         const value = indentSheet.find(
                                                             (i) =>
                                                                 i.indentNumber ===
