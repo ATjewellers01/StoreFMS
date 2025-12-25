@@ -1261,9 +1261,9 @@ export default () => {
         poDate: z.coerce.date(),
         supplierName: z.string().nonempty(),
         supplierAddress: z.string().nonempty(),
-        gstin: z.string().optional(),
+        gstin: z.any().optional(),
         quotationNumber: z.string(),
-        quotationDate: z.coerce.date(),
+        quotationDate: z.coerce.date().optional().nullable(),
         ourEnqNo: z.string(),
         enquiryDate: z.coerce.date().nullable().optional(),
         description: z.string().nullable().optional(),
@@ -1274,8 +1274,9 @@ export default () => {
                     gst: z.coerce.number(),
                     discount: z.coerce.number().default(0).optional(),
                 })
-            ),
-        terms: z.array(z.string().nonempty()).max(10),
+            )
+            .optional(),
+        terms: z.array(z.string()).max(10),
         preparedBy: z.string().optional(),
         approvedBy: z.string().optional(),
     });
@@ -1288,9 +1289,9 @@ export default () => {
             poDate: new Date(),
             supplierName: '',
             supplierAddress: '',
-            preparedBy: undefined,
-            approvedBy: undefined,
-            gstin: undefined,
+            preparedBy: '',
+            approvedBy: '',
+            gstin: '',
             quotationNumber: '',
             quotationDate: new Date(),
             ourEnqNo: '',
@@ -1382,7 +1383,8 @@ export default () => {
             );
             form.setValue(
                 'gstin',
-                details?.vendors.find((v) => v.vendorName === vendor)?.gstin || ''
+                details?.vendors.find((v) => v.vendorName === vendor)?.gstin || '',
+                { shouldValidate: false, shouldDirty: true } // ✅ FIX
             );
             form.setValue(
                 'indents',
