@@ -240,10 +240,20 @@ export async function fetchSheet(
             uoms: [...uoms] // Add this line
         };
     }
-    if (sheetName === 'INDENT' || sheetName === 'RECEIVED' || sheetName === 'PO MASTER' || sheetName === 'INVENTORY') {
+    if (sheetName === 'RECEIVED' || sheetName === 'PO MASTER' || sheetName === 'INVENTORY') {
         const rows = raw.rows.map((r: any, i: number) => ({
             ...r,
             rowIndex: i + 2,
+        }));
+        return rows.filter((r: any) => r.timestamp !== '' || r.indentNumber !== '' || r.itemName !== '');
+    }
+    if (sheetName === 'INDENT') {
+        // INDENT sheet: header row is row 6, data starts at row 7
+        // The GAS backend returns rows starting from row 7 (startsAt = headerRow + 1 = 7)
+        // So rowIndex for the i-th returned row = i + 7
+        const rows = raw.rows.map((r: any, i: number) => ({
+            ...r,
+            rowIndex: i + 7,
         }));
         return rows.filter((r: any) => r.timestamp !== '' || r.indentNumber !== '' || r.itemName !== '');
     }

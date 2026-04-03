@@ -85,34 +85,24 @@ export default () => {
             const rows: Partial<IndentSheet>[] = [];
 
             // Find the maximum indent number from existing data
+            // Only count rows that have a real indent number (skip blank/empty rows)
             const maxIndentNum = indentSheet.length > 0
-                ? Math.max(...indentSheet.map(r => {
-                    const match = r.indentNumber?.match(/SI-(\d+)/);
-                    return match ? parseInt(match[1]) : 0;
-                }))
+                ? Math.max(...indentSheet
+                    .filter(r => r.indentNumber && r.indentNumber.trim() !== '')
+                    .map(r => {
+                        const match = r.indentNumber?.match(/SI-(\d+)/);
+                        return match ? parseInt(match[1]) : 0;
+                    })
+                    .concat([0]) // ensure Math.max never receives empty array
+                )
                 : 0;
 
-            // Find the first blank row or use the next row after last data
-            const rowsWithBlank = indentSheet.filter(r => !r.indentNumber || r.indentNumber === '');
-            const firstBlankIndex = indentSheet.findIndex(r => !r.indentNumber || r.indentNumber === '');
-            
-            let startRowIndex: number;
-            if (firstBlankIndex !== -1) {
-                // There are blank rows, use the first blank row's index
-                const blankRow = indentSheet[firstBlankIndex];
-                startRowIndex = blankRow.rowIndex || (firstBlankIndex + 2);
-            } else {
-                // No blank rows, use the next row after last data
-                const maxRowIndex = indentSheet.length > 0
-                    ? Math.max(...indentSheet.map(r => r.rowIndex || 0))
-                    : 1;
-                startRowIndex = maxRowIndex + 1;
-            }
+            // Each product gets its own unique indent number (SI-0021, SI-0022, ...)
+            const timestamp = new Date().toISOString();
 
             for (const [index, product] of data.products.entries()) {
                 const row: Partial<IndentSheet> = {
-                    rowIndex: startRowIndex + index,
-                    timestamp: new Date().toISOString(),
+                    timestamp,
                     indentNumber: `SI-${String(maxIndentNum + index + 1).padStart(4, '0')}`,
                     indenterName: data.indenterName,
                     department: product.department,
