@@ -191,7 +191,8 @@ export async function fetchSheet(
         const departments = new Set<string>();
         const paymentTerms = new Set<string>();
         const defaultTerms = new Set<string>();
-        const approveVendorNames = new Set<string>(); // Add this line
+        const approveVendorNames = new Set<string>();
+        const uoms = new Set<string>(); // Add this line
 
         for (let i = 0; i < length; i++) {
             const vendorName = data.vendorName?.[i];
@@ -209,6 +210,9 @@ export async function fetchSheet(
             // Add this block for approve vendor names (column S)
             if (data.approveVendorName?.[i]) {
                 approveVendorNames.add(data.approveVendorName[i]);
+            }
+            if (data.uom?.[i]) {
+                uoms.add(data.uom[i]);
             }
 
             const group = data.groupHead?.[i];
@@ -232,10 +236,18 @@ export async function fetchSheet(
             billingAddress: data.billingAddress,
             destinationAddress: data.destinationAddress,
             defaultTerms: [...defaultTerms],
-            approveVendorNames: [...approveVendorNames] // Add this line
+            approveVendorNames: [...approveVendorNames], // Add this line
+            uoms: [...uoms] // Add this line
         };
     }
-    return raw.rows.filter((r: IndentSheet) => r.timestamp !== '');
+    if (sheetName === 'INDENT' || sheetName === 'RECEIVED' || sheetName === 'PO MASTER' || sheetName === 'INVENTORY') {
+        const rows = raw.rows.map((r: any, i: number) => ({
+            ...r,
+            rowIndex: i + 2,
+        }));
+        return rows.filter((r: any) => r.timestamp !== '' || r.indentNumber !== '' || r.itemName !== '');
+    }
+    return raw.rows.filter((r: any) => r.timestamp !== '');
 }
 
 export async function postToSheet(

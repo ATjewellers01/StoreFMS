@@ -1,6 +1,7 @@
 export type Sheet = 'INDENT' | 'RECEIVED' | 'MASTER' | 'USER' | 'PO MASTER' | "INVENTORY";
 
 export type IndentSheet = {
+    rowIndex?: number;
     timestamp: string;
     indentNumber: string;
     indenterName: string;
@@ -70,6 +71,7 @@ export type IndentSheet = {
 };
 
 export type ReceivedSheet = {
+    rowIndex?: number;
     timestamp: string;
     indentNumber: string;
     poDate: string;
@@ -164,6 +166,7 @@ export type MasterSheet = {
     destinationAddress: string;
     defaultTerms: string[];
     approveVendorNames: string[];
+    uoms: string[];
 };
 
 export type UserPermissions = {

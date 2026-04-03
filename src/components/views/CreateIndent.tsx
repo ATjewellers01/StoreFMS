@@ -27,29 +27,29 @@ export default () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [searchTermGroupHead, setSearchTermGroupHead] = useState("");
     const [searchTermProductName, setSearchTermProductName] = useState("");
-const [searchTermApprovedBy, setSearchTermApprovedBy] = useState("");
+    const [searchTermApprovedBy, setSearchTermApprovedBy] = useState("");
     useEffect(() => {
         setIndentSheet(sheet);
     }, [sheet]);
 
-   const schema = z.object({
-  indenterName: z.string().nonempty(),
-  indentApproveBy: z.string().nonempty(),
-  indentType: z.enum(['Purchase', 'Store Out']),
-  approveVendorNames: z.string().optional(), // ✅ added
-  products: z.array(
-    z.object({
-      department: z.string().nonempty(),
-      groupHead: z.string().nonempty(),
-      productName: z.string().nonempty(),
-      quantity: z.coerce.number().gt(0, 'Must be greater than 0'),
-      uom: z.string().nonempty(),
-      areaOfUse: z.string().nonempty(),
-      attachment: z.instanceof(File).optional(),
-      specifications: z.string().optional(),
-    })
-  ).min(1, 'At least one product is required'),
-});
+    const schema = z.object({
+        indenterName: z.string().nonempty(),
+        indentApproveBy: z.string().nonempty(),
+        indentType: z.enum(['Purchase', 'Store Out']),
+        approveVendorNames: z.string().optional(), // ✅ added
+        products: z.array(
+            z.object({
+                department: z.string().nonempty(),
+                groupHead: z.string().nonempty(),
+                productName: z.string().nonempty(),
+                quantity: z.coerce.number().gt(0, 'Must be greater than 0'),
+                uom: z.string().nonempty(),
+                areaOfUse: z.string().nonempty(),
+                attachment: z.instanceof(File).optional(),
+                specifications: z.string().optional(),
+            })
+        ).min(1, 'At least one product is required'),
+    });
 
 
     const form = useForm({
@@ -58,7 +58,7 @@ const [searchTermApprovedBy, setSearchTermApprovedBy] = useState("");
             indenterName: '',
             indentApproveBy: '',
             indentType: undefined,
-            approveVendorNames:'',
+            approveVendorNames: '',
             products: [
                 {
                     attachment: undefined,
@@ -83,10 +83,37 @@ const [searchTermApprovedBy, setSearchTermApprovedBy] = useState("");
     async function onSubmit(data: z.infer<typeof schema>) {
         try {
             const rows: Partial<IndentSheet>[] = [];
-            for (const product of data.products) {
+
+            // Find the maximum indent number from existing data
+            const maxIndentNum = indentSheet.length > 0
+                ? Math.max(...indentSheet.map(r => {
+                    const match = r.indentNumber?.match(/SI-(\d+)/);
+                    return match ? parseInt(match[1]) : 0;
+                }))
+                : 0;
+
+            // Find the first blank row or use the next row after last data
+            const rowsWithBlank = indentSheet.filter(r => !r.indentNumber || r.indentNumber === '');
+            const firstBlankIndex = indentSheet.findIndex(r => !r.indentNumber || r.indentNumber === '');
+            
+            let startRowIndex: number;
+            if (firstBlankIndex !== -1) {
+                // There are blank rows, use the first blank row's index
+                const blankRow = indentSheet[firstBlankIndex];
+                startRowIndex = blankRow.rowIndex || (firstBlankIndex + 2);
+            } else {
+                // No blank rows, use the next row after last data
+                const maxRowIndex = indentSheet.length > 0
+                    ? Math.max(...indentSheet.map(r => r.rowIndex || 0))
+                    : 1;
+                startRowIndex = maxRowIndex + 1;
+            }
+
+            for (const [index, product] of data.products.entries()) {
                 const row: Partial<IndentSheet> = {
+                    rowIndex: startRowIndex + index,
                     timestamp: new Date().toISOString(),
-                    indentNumber: `SI-${String(indentSheet.length).padStart(4, '0')}`,
+                    indentNumber: `SI-${String(maxIndentNum + index + 1).padStart(4, '0')}`,
                     indenterName: data.indenterName,
                     department: product.department,
                     areaOfUse: product.areaOfUse,
@@ -110,7 +137,7 @@ const [searchTermApprovedBy, setSearchTermApprovedBy] = useState("");
                 rows.push(row);
             }
             setTimeout(() => updateIndentSheet(), 1000);
-            await postToSheet(rows);
+            await postToSheet(rows, 'insert');
             toast.success('Indent created successufully');
             form.reset({
                 indenterName: '',
@@ -187,73 +214,54 @@ const [searchTermApprovedBy, setSearchTermApprovedBy] = useState("");
                             )}
                         />
 
-   <FormField
-    control={form.control}
-    name="indentApproveBy"
-    render={({ field }) => (
-        <FormItem>
-            <FormLabel>
-                Approved By
-                <span className="text-destructive">*</span>
-            </FormLabel>
-            <Select onValueChange={field.onChange} value={field.value}>
-                <FormControl>
-                    <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select approved by" />
-                    </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                    {/* 🔍 Search Box */}
-                    <div className="flex items-center border-b px-3 pb-3">
-                        <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-                        <input
-                            placeholder="Search approved by..."
-                            value={searchTermApprovedBy}
-                            onChange={(e) => setSearchTermApprovedBy(e.target.value)}
-                            onKeyDown={(e) => e.stopPropagation()}
-                            className="flex h-10 w-full rounded-md border-0 bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
+                        <FormField
+                            control={form.control}
+                            name="indentApproveBy"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>
+                                        Approved By
+                                        <span className="text-destructive">*</span>
+                                    </FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder="Select approved by" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {/* 🔍 Search Box */}
+                                            <div className="flex items-center border-b px-3 pb-3">
+                                                <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                                                <input
+                                                    placeholder="Search approved by..."
+                                                    value={searchTermApprovedBy}
+                                                    onChange={(e) => setSearchTermApprovedBy(e.target.value)}
+                                                    onKeyDown={(e) => e.stopPropagation()}
+                                                    className="flex h-10 w-full rounded-md border-0 bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
+                                                />
+                                            </div>
+
+                                            {/* Filtered List */}
+                                            {options?.approveVendorNames
+                                                ?.filter((name) =>
+                                                    name.toLowerCase().includes(searchTermApprovedBy.toLowerCase())
+                                                )
+                                                .map((name, i) => (
+                                                    <SelectItem key={i} value={name}>
+                                                        {name}
+                                                    </SelectItem>
+                                                ))}
+                                        </SelectContent>
+                                    </Select>
+                                </FormItem>
+                            )}
                         />
                     </div>
 
-                    {/* Filtered List */}
-                    {options?.approveVendorNames
-                        ?.filter((name) =>
-                            name.toLowerCase().includes(searchTermApprovedBy.toLowerCase())
-                        )
-                        .map((name, i) => (
-                            <SelectItem key={i} value={name}>
-                                {name}
-                            </SelectItem>
-                        ))}
-                </SelectContent>
-            </Select>
-        </FormItem>
-    )}
-/>
-                    </div>
-
                     <div className="space-y-4">
-                        <div className="flex justify-between items-center">
+                        <div className="flex justify-between items-center py-2 border-b">
                             <h2 className="text-lg font-semibold">Products</h2>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() =>
-                                    append({
-                                        department: '',
-                                        groupHead: '',
-                                        productName: '',
-                                        quantity: 1,
-                                        uom: '',
-                                        areaOfUse: '',
-                                        // @ts-ignore
-                                        priority: undefined,
-                                        attachment: undefined,
-                                    })
-                                }
-                            >
-                                Add Product
-                            </Button>
                         </div>
 
                         {fields.map((field, index) => {
@@ -269,14 +277,39 @@ const [searchTermApprovedBy, setSearchTermApprovedBy] = useState("");
                                         <h3 className="text-md font-semibold">
                                             Product {index + 1}
                                         </h3>
-                                        <Button
-                                            variant="destructive"
-                                            type="button"
-                                            onClick={() => fields.length > 1 && remove(index)}
-                                            disabled={fields.length === 1}
-                                        >
-                                            <Trash />
-                                        </Button>
+                                        <div className="flex gap-2">
+                                            {index === fields.length - 1 && (
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        const lastProduct = products[products.length - 1];
+                                                        append({
+                                                            department: lastProduct?.department || '',
+                                                            groupHead: lastProduct?.groupHead || '',
+                                                            areaOfUse: lastProduct?.areaOfUse || '',
+                                                            productName: '',
+                                                            quantity: 1,
+                                                            uom: '',
+                                                            // @ts-ignore
+                                                            priority: undefined,
+                                                            attachment: undefined,
+                                                        });
+                                                    }}
+                                                >
+                                                    Add Product
+                                                </Button>
+                                            )}
+                                            <Button
+                                                variant="destructive"
+                                                type="button"
+                                                onClick={() => fields.length > 1 && remove(index)}
+                                                disabled={fields.length === 1}
+                                            >
+                                                <Trash />
+                                            </Button>
+                                        </div>
                                     </div>
                                     <div className="grid gap-4">
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -465,13 +498,20 @@ const [searchTermApprovedBy, setSearchTermApprovedBy] = useState("");
                                                                 *
                                                             </span>
                                                         </FormLabel>
-                                                        <FormControl>
-                                                            <Input
-                                                                {...field}
-                                                                disabled={!groupHead}
-                                                                placeholder="e.g. Pcs, Kgs"
-                                                            />
-                                                        </FormControl>
+                                                        <Select onValueChange={field.onChange} value={field.value} disabled={!groupHead}>
+                                                            <FormControl>
+                                                                <SelectTrigger className="w-full">
+                                                                    <SelectValue placeholder="Select UOM" />
+                                                                </SelectTrigger>
+                                                            </FormControl>
+                                                            <SelectContent>
+                                                                {options?.uoms?.map((uom, i) => (
+                                                                    <SelectItem key={i} value={uom}>
+                                                                        {uom}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
                                                     </FormItem>
                                                 )}
                                             />

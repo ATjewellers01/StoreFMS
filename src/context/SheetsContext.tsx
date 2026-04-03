@@ -228,9 +228,18 @@ export const SheetsProvider = ({ children }: { children: React.ReactNode }) => {
         
         console.log('Approve vendor names from column S:', approveVendorNames);
 
+        let uoms: string[] = [];
+        if (masterSheetData && masterSheetData.uoms && Array.isArray(masterSheetData.uoms)) {
+            uoms = masterSheetData.uoms
+                .filter(uom => uom && uom.trim() !== '')
+                .filter((uom, index, arr) => arr.indexOf(uom) === index);
+        }
+        console.log('UOMs from column T:', uoms);
+
         setMasterSheet({
             ...masterSheetData,
-            approveVendorNames
+            approveVendorNames,
+            uoms
         } as MasterSheet);
     }).catch(error => {
         console.error('Error in updateMasterSheet:', error);
