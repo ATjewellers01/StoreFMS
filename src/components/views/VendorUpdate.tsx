@@ -1,6 +1,6 @@
 import { useSheets } from '@/context/SheetsContext';
 import type { ColumnDef, Row } from '@tanstack/react-table';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import DataTable from '../element/DataTable';
 import { Button } from '../ui/button';
 import {
@@ -37,6 +37,9 @@ interface VendorUpdateData {
     quantity: number;
     uom: string;
     vendorType: 'Three Party' | 'Regular';
+    currentVendor?: string;
+    currentRate?: number;
+    currentPaymentTerm?: string;
 }
 interface HistoryData {
     indentNo: string;
@@ -62,6 +65,11 @@ export default () => {
     const [openDialog, setOpenDialog] = useState(false);
     const [editingRow, setEditingRow] = useState<string | null>(null);
     const [editValues, setEditValues] = useState<Partial<HistoryData>>({});
+    const [checkedRows, setCheckedRows] = useState<Set<string>>(new Set());
+    const [editVendorNames, setEditVendorNames] = useState<Record<string, string>>({});
+    const [editRates, setEditRates] = useState<Record<string, number>>({});
+    const [editPaymentTerms, setEditPaymentTerms] = useState<Record<string, string>>({});
+    const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
 
     // Fetching table data
     useEffect(() => {
@@ -76,6 +84,9 @@ export default () => {
                     quantity: sheet.approvedQuantity,
                     uom: sheet.uom,
                     vendorType: sheet.vendorType as VendorUpdateData['vendorType'],
+                    currentVendor: sheet.approvedVendorName,
+                    currentRate: sheet.approvedRate,
+                    currentPaymentTerm: sheet.approvedPaymentTerm,
                 }))
         );
         setHistoryData(
@@ -99,6 +110,11 @@ export default () => {
                 })
         );
     }, [indentSheet]);
+    
+    // Memoized regular and three-party data
+    const regularData = useMemo(() => tableData.filter(d => d.vendorType === 'Regular'), [tableData]);
+    const threePartyData = useMemo(() => tableData.filter(d => d.vendorType === 'Three Party'), [tableData]);
+
 
     const handleEditClick = (row: HistoryData) => {
         setEditingRow(row.indentNo);
@@ -140,58 +156,218 @@ export default () => {
     const handleInputChange = (field: keyof HistoryData, value: any) => {
         setEditValues(prev => ({ ...prev, [field]: value }));
     };
+    
+    const handleBulkUpdate = async () => {
+        if (checkedRows.size === 0) return;
+        setIsBulkSubmitting(true);
+        try {
+            const updates = Array.from(checkedRows).map(indentNo => {
+                const sheetItem = indentSheet.find(s => s.indentNumber === indentNo);
+                if (!sheetItem) return null;
+                
+                const vendorName = editVendorNames[indentNo] || sheetItem.approvedVendorName;
+                const rate = editRates[indentNo] || (sheetItem.approvedRate || 0);
+                const paymentTerm = editPaymentTerms[indentNo] || sheetItem.approvedPaymentTerm;
+                
+                // Only update if it's a regular vendor or if we have at least one valid edit
+                // (Note: regular vendor is the primary target for this bulk update)
+                return {
+                    ...sheetItem,
+                    actual2: new Date().toISOString(),
+                    vendorName1: vendorName,
+                    rate1: rate.toString(),
+                    paymentTerm1: paymentTerm,
+                    approvedVendorName: vendorName,
+                    approvedRate: rate,
+                    approvedPaymentTerm: paymentTerm,
+                    lastUpdated: new Date().toISOString(),
+                };
+            }).filter((item): item is NonNullable<typeof item> => item !== null);
 
-    // Creating table columns
-    const columns: ColumnDef<VendorUpdateData>[] = [
-        ...(user.updateVendorAction
-            ? [
-                {
-                    header: 'Action',
-                    cell: ({ row }: { row: Row<VendorUpdateData> }) => {
-                        const indent = row.original;
+            await postToSheet(updates, 'update');
+            toast.success(`Updated ${updates.length} vendors`);
+            setCheckedRows(new Set());
+            setEditVendorNames({});
+            setEditRates({});
+            setEditPaymentTerms({});
+            setTimeout(() => updateIndentSheet(), 1000);
+        } catch (error) {
+            console.error(error);
+            toast.error('Failed to update vendors');
+        } finally {
+            setIsBulkSubmitting(false);
+        }
+    };
 
-                        return (
-                            <div>
-                                <DialogTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => {
-                                            setSelectedIndent(indent);
-                                        }}
-                                    >
-                                        Update
-                                    </Button>
-                                </DialogTrigger>
-                            </div>
-                        );
-                    },
-                },
-            ]
-            : []),
+    // Regular columns (retains select, inline edits, and Action at end)
+    const regularColumns: ColumnDef<VendorUpdateData>[] = useMemo(() => [
         {
-            accessorKey: 'indentNo',
-            header: 'Indent No.',
+            id: 'select',
+            header: () => (
+                <input
+                    type="checkbox"
+                    checked={
+                        regularData.length > 0 && 
+                        checkedRows.size === regularData.length
+                    }
+                    onChange={(e) => {
+                        const isChecked = e.target.checked;
+                        if (isChecked) {
+                            setCheckedRows(new Set(regularData.map(d => d.indentNo)));
+                        } else {
+                            setCheckedRows(new Set());
+                        }
+                    }}
+                    className="h-4 w-4 cursor-pointer accent-primary"
+                />
+            ),
+            cell: ({ row }: { row: Row<VendorUpdateData> }) => {
+                const indentNo = row.original.indentNo;
+                const isChecked = checkedRows.has(indentNo);
+                return (
+                    <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                            setCheckedRows((prev) => {
+                                const next = new Set(prev);
+                                if (e.target.checked) {
+                                    next.add(indentNo);
+                                } else {
+                                    next.delete(indentNo);
+                                }
+                                return next;
+                            });
+                        }}
+                        className="h-4 w-4 cursor-pointer accent-primary"
+                    />
+                );
+            },
         },
         {
-            accessorKey: 'indenter',
-            header: 'Indenter',
+            id: 'vendorName',
+            header: 'Vendor Name',
+            cell: ({ row, table }: { row: Row<VendorUpdateData>, table: any }) => {
+                const indentNo = row.original.indentNo;
+                const isChecked = checkedRows.has(indentNo);
+                const { editVendorNames, setEditVendorNames } = table.options.meta;
+                const value = editVendorNames[indentNo] || row.original.currentVendor || '';
+
+                return (
+                    <Select
+                        value={value}
+                        disabled={!isChecked}
+                        onValueChange={(val) => {
+                            if (isChecked) {
+                                setEditVendorNames((prev: any) => {
+                                    const next = { ...prev };
+                                    checkedRows.forEach((no) => {
+                                        next[no] = val;
+                                    });
+                                    return next;
+                                });
+                            } else {
+                                setEditVendorNames((prev: any) => ({ ...prev, [indentNo]: val }));
+                            }
+                        }}
+                    >
+                        <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Select Vendor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {options?.vendors?.map(({ vendorName }, i) => (
+                                <SelectItem key={i} value={vendorName}>
+                                    {vendorName}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                );
+            },
         },
         {
-            accessorKey: 'department',
-            header: 'Department',
+            id: 'rate',
+            header: 'Rate',
+            cell: ({ row, table }: { row: Row<VendorUpdateData>, table: any }) => {
+                const indentNo = row.original.indentNo;
+                const isChecked = checkedRows.has(indentNo);
+                const { editRates, setEditRates } = table.options.meta;
+                const value = editRates[indentNo] ?? row.original.currentRate ?? '';
+
+                return (
+                    <Input
+                        type="number"
+                        placeholder="0"
+                        disabled={!isChecked}
+                        value={value}
+                        onChange={(e) =>
+                            setEditRates((prev: any) => ({
+                                ...prev,
+                                [indentNo]: Number(e.target.value),
+                            }))
+                        }
+                        className="w-24"
+                    />
+                );
+            },
         },
+        {
+            id: 'paymentTerm',
+            header: 'Payment Term',
+            cell: ({ row, table }: { row: Row<VendorUpdateData>, table: any }) => {
+                const indentNo = row.original.indentNo;
+                const isChecked = checkedRows.has(indentNo);
+                const { editPaymentTerms, setEditPaymentTerms } = table.options.meta;
+                const value = editPaymentTerms[indentNo] || row.original.currentPaymentTerm || '';
+
+                return (
+                    <Select
+                        value={value}
+                        disabled={!isChecked}
+                        onValueChange={(val) => {
+                            if (isChecked) {
+                                setEditPaymentTerms((prev: any) => {
+                                    const next = { ...prev };
+                                    checkedRows.forEach((no) => {
+                                        next[no] = val;
+                                    });
+                                    return next;
+                                });
+                            } else {
+                                setEditPaymentTerms((prev: any) => ({ ...prev, [indentNo]: val }));
+                            }
+                        }}
+                    >
+                        <SelectTrigger className="w-[160px]">
+                            <SelectValue placeholder="Select term" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {options?.paymentTerms?.map((term, i) => (
+                                <SelectItem key={i} value={term}>
+                                    {term}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                );
+            },
+        },
+        { accessorKey: 'indentNo', header: 'Indent No.' },
+        { accessorKey: 'indenter', header: 'Indenter' },
+        { accessorKey: 'department', header: 'Department' },
         {
             accessorKey: 'product',
             header: 'Product',
             cell: ({ getValue }) => (
-                <div className="max-w-[150px] break-words whitespace-normal">
+                <div className="max-w-[150px] break-words whitespace-normal font-medium">
                     {getValue() as string}
                 </div>
             ),
         },
         {
             accessorKey: 'quantity',
-            header: 'Quantity',
+            header: 'Qty',
+            cell: ({ getValue }) => <span className="font-semibold">{getValue() as number}</span>,
         },
         {
             accessorKey: 'uom',
@@ -199,16 +375,72 @@ export default () => {
         },
         {
             accessorKey: 'vendorType',
-            header: 'Vendor Type',
+            header: 'Type',
             cell: ({ row }) => {
                 const status = row.original.vendorType;
                 const variant = status === 'Regular' ? 'primary' : 'secondary';
                 return <Pill variant={variant}>{status}</Pill>;
             },
         },
-    ];
+    ], [regularData, checkedRows, options, user.updateVendorAction]);
 
-    const historyColumns: ColumnDef<HistoryData>[] = [
+    // Three Party columns (Action at front, no select or inline edits)
+    const threePartyColumns: ColumnDef<VendorUpdateData>[] = useMemo(() => [
+        ...(user.updateVendorAction
+            ? [
+                {
+                    header: 'Action',
+                    cell: ({ row }: { row: Row<VendorUpdateData> }) => {
+                        const indent = row.original;
+                        return (
+                            <DialogTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setSelectedIndent(indent)}
+                                >
+                                    Update (3P)
+                                </Button>
+                            </DialogTrigger>
+                        );
+                    },
+                },
+            ]
+            : []),
+        { accessorKey: 'indentNo', header: 'Indent No.' },
+        { accessorKey: 'indenter', header: 'Indenter' },
+        { accessorKey: 'department', header: 'Department' },
+        {
+            accessorKey: 'product',
+            header: 'Product',
+            cell: ({ getValue }) => (
+                <div className="max-w-[150px] break-words whitespace-normal font-medium">
+                    {getValue() as string}
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'quantity',
+            header: 'Qty',
+            cell: ({ getValue }) => <span className="font-semibold">{getValue() as number}</span>,
+        },
+        {
+            accessorKey: 'uom',
+            header: 'UOM',
+        },
+        {
+            accessorKey: 'vendorType',
+            header: 'Type',
+            cell: ({ row }) => {
+                const status = row.original.vendorType;
+                const variant = status === 'Regular' ? 'primary' : 'secondary';
+                return <Pill variant={variant}>{status}</Pill>;
+            },
+        },
+    ], [user.updateVendorAction]);
+
+
+    const historyColumns: ColumnDef<HistoryData>[] = useMemo(() => [
         ...(user.updateVendorAction ? [
             {
                 header: 'Action',
@@ -396,7 +628,7 @@ export default () => {
                 },
             ]
             : []),
-    ];
+    ], [editingRow, editValues, user.updateVendorAction]);
 
     // Creating Regular Vendor form
     const regularSchema = z.object({
@@ -568,19 +800,57 @@ export default () => {
     return (
         <div>
             <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-                <Tabs defaultValue="pending">
+                <Tabs defaultValue="regular">
                     <Heading
                         heading="Vendor Rate Update"
                         subtext="Update vendors for Regular and Three Party indents"
                         tabs
+                        customTabs={[
+                            { value: 'regular', label: 'Regular' },
+                            { value: 'threeParty', label: 'Three Party' },
+                            { value: 'history', label: 'History' },
+                        ]}
                     >
                         <UserCheck size={50} className="text-primary" />
                     </Heading>
-                    <TabsContent value="pending">
+                    <TabsContent value="regular">
                         <DataTable
-                            data={tableData}
-                            columns={columns}
-                            searchFields={['product', 'department', 'indenter', 'vendorType']}
+                            data={regularData}
+                            columns={regularColumns}
+                            searchFields={['product', 'department', 'indenter']}
+                            dataLoading={indentLoading}
+                            meta={{
+                                editVendorNames,
+                                setEditVendorNames,
+                                editRates,
+                                setEditRates,
+                                editPaymentTerms,
+                                setEditPaymentTerms,
+                            }}
+                            extraActions={
+                                <div className="flex gap-2">
+                                    {checkedRows.size > 0 && (
+                                        <Button
+                                            onClick={handleBulkUpdate}
+                                            disabled={isBulkSubmitting}
+                                            className="px-6 relative"
+                                        >
+                                            {isBulkSubmitting ? (
+                                                <Loader size={20} color="white" />
+                                            ) : (
+                                                `Update Selected (${checkedRows.size})`
+                                            )}
+                                        </Button>
+                                    )}
+                                </div>
+                            }
+                        />
+                    </TabsContent>
+                    <TabsContent value="threeParty">
+                        <DataTable
+                            data={threePartyData}
+                            columns={threePartyColumns}
+                            searchFields={['product', 'department', 'indenter']}
                             dataLoading={indentLoading}
                         />
                     </TabsContent>

@@ -31,6 +31,7 @@ interface DataTableProps<TData, TValue> {
     children?: ReactNode;
     className?: string;
     extraActions?: ReactNode;
+    meta?: any;
 }
 
 function globalFilterFn<TData>(row: TData, columnIds: string[], filterValue: string) {
@@ -50,6 +51,7 @@ export default function DataTable<TData, TValue>({
     children: _children, // <-- underscore avoids TS unused variable error
     className,
     extraActions,
+    meta,
 }: DataTableProps<TData, TValue>) {
     const [globalFilter, setGlobalFilter] = useState('');
     const table = useReactTable({
@@ -64,6 +66,7 @@ export default function DataTable<TData, TValue>({
             globalFilter,
         },
         onGlobalFilterChange: setGlobalFilter,
+        meta,
     });
 
     return (

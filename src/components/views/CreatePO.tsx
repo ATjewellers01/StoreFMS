@@ -228,7 +228,7 @@
 //                 'indents',
 //                 items.map((i) => ({
 //                     indentNumber: i.indentNumber,
-//                     gst: 18,
+//                     gst: 0,
 //                     discount: 0,
 //                 }))
 //             );
@@ -1390,7 +1390,7 @@ export default () => {
                 'indents',
                 items.map((i) => ({
                     indentNumber: i.indentNumber,
-                    gst: 18,
+                    gst: 0,
                     discount: 0,
                 }))
             );

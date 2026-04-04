@@ -7,9 +7,10 @@ interface HeaderProps {
     heading: string;
     subtext: string;
     tabs?: boolean;
+    customTabs?: { value: string; label: string }[];
 }
 
-export default ({ children, heading, subtext, tabs = false }: HeaderProps) => {
+export default ({ children, heading, subtext, tabs = false, customTabs }: HeaderProps) => {
     return (
         <div className="bg-gradient-to-br from-blue-100 via-purple-50 to-blue-50 rounded-md">
             <div className="flex justify-between p-5">
@@ -24,8 +25,18 @@ export default ({ children, heading, subtext, tabs = false }: HeaderProps) => {
             </div>
             {tabs && (
                 <TabsList className="w-full rounded-none bg-transparent rounded-b-md">
-                    <TabsTrigger value="pending">Pending</TabsTrigger>
-                    <TabsTrigger value="history">History</TabsTrigger>
+                    {customTabs ? (
+                        customTabs.map((tab) => (
+                            <TabsTrigger key={tab.value} value={tab.value}>
+                                {tab.label}
+                            </TabsTrigger>
+                        ))
+                    ) : (
+                        <>
+                            <TabsTrigger value="pending">Pending</TabsTrigger>
+                            <TabsTrigger value="history">History</TabsTrigger>
+                        </>
+                    )}
                 </TabsList>
             )}
         </div>

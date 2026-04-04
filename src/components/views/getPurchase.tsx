@@ -63,19 +63,24 @@ export default () => {
     // Fetching table data
     useEffect(() => {
         // Pending: planned7 is not null and actual7 is null
-        setTableData(
-            indentSheet
-                .filter((sheet) => sheet.planned7 !== '' && sheet.actual7 == '')
-                .map((sheet) => ({
-                    indentNo: sheet.indentNumber,
-                    indenter: sheet.indenterName,
-                    department: sheet.department,
-                    product: sheet.productName,
-                    quantity: sheet.approvedQuantity,
-                    uom: sheet.uom,
-                    poNumber: sheet.poNumber,
-                }))
+        const pendingData: GetPurchaseData[] = indentSheet
+            .filter((sheet) => sheet.planned7 !== '' && sheet.actual7 == '')
+            .map((sheet) => ({
+                indentNo: sheet.indentNumber,
+                indenter: sheet.indenterName,
+                department: sheet.department,
+                product: sheet.productName,
+                quantity: sheet.approvedQuantity,
+                uom: sheet.uom,
+                poNumber: sheet.poNumber?.toString().trim(),
+            }));
+
+        // Filter for unique poNumbers
+        const uniquePending = pendingData.filter((item, index, self) =>
+            index === self.findIndex((t) => t.poNumber === item.poNumber)
         );
+
+        setTableData(uniquePending);
 
         // History: both planned7 and actual7 are not null
         setHistoryData(
@@ -253,7 +258,7 @@ export default () => {
             // DO NOT update poNumber (column AQ), poCopy (column AP), or actual4 (column AN)
             await postToSheet(
                 indentSheet
-                    .filter((s) => s.indentNumber === selectedIndent?.indentNo)
+                    .filter((s) => s.poNumber === selectedIndent?.poNumber)
                     .map((prev) => {
                         // Destructure to exclude the fields we don't want to update
                         const { actual4, poNumber, poCopy, ...safeData } = prev;
@@ -340,23 +345,42 @@ export default () => {
 
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3 bg-muted py-2 px-5 rounded-md">
                                     <div className="space-y-1">
-                                        <p className="font-medium">Indent Number</p>
-                                        <p className="text-sm font-light">
-                                            {selectedIndent.indentNo}
-                                        </p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <p className="font-medium">Product</p>
-                                        <p className="text-sm font-light">
-                                            {selectedIndent.product}
-                                        </p>
-                                    </div>
-                                    <div className="space-y-1">
                                         <p className="font-medium">PO Number</p>
                                         <p className="text-sm font-light">
                                             {selectedIndent.poNumber}
                                         </p>
                                     </div>
+                                    <div className="space-y-1">
+                                        <p className="font-medium">Related Items</p>
+                                        <p className="text-sm font-light">
+                                            {indentSheet.filter(s => s.poNumber === selectedIndent?.poNumber).length} items
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="border rounded-md overflow-hidden bg-background">
+                                    <table className="w-full text-xs">
+                                        <thead className="bg-muted/50 border-b">
+                                            <tr>
+                                                <th className="px-3 py-2 text-left font-semibold">Indent No</th>
+                                                <th className="px-3 py-2 text-left font-semibold">Product</th>
+                                                <th className="px-3 py-2 text-right font-semibold">Qty</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y">
+                                            {indentSheet
+                                                .filter(s => s.poNumber === selectedIndent?.poNumber)
+                                                .map((item, idx) => (
+                                                    <tr key={idx} className="hover:bg-muted/30 transition-colors">
+                                                        <td className="px-3 py-2 font-mono">{item.indentNumber}</td>
+                                                        <td className="px-3 py-2">{item.productName}</td>
+                                                        <td className="px-3 py-2 text-right tabular-nums">
+                                                            {item.approvedQuantity} {item.uom}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                        </tbody>
+                                    </table>
                                 </div>
 
                                 <div className="grid gap-4">

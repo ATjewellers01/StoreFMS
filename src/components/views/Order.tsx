@@ -24,22 +24,27 @@ export default () => {
 
     // Fetching table data
     useEffect(() => {
-        setHistoryData(
-            poMasterSheet.map((sheet) => ({
-                approvedBy: sheet.approvedBy,
-                poCopy: sheet.pdf,
-                poNumber: sheet.poNumber,
-                preparedBy: sheet.preparedBy,
-                totalAmount: sheet.totalPoAmount,
-                vendorName: sheet.partyName,
-                status: indentSheet.map((s) => s.poNumber).includes(sheet.poNumber)
-                    ? receivedSheet.map((r) => r.poNumber).includes(sheet.poNumber)
-                        ? 'Recieved'
-                        : 'Not Recieved'
-                    : 'Revised',
-            }))
+        const data: HistoryData[] = poMasterSheet.map((sheet) => ({
+            approvedBy: sheet.approvedBy,
+            poCopy: sheet.pdf,
+            poNumber: sheet.poNumber?.toString().trim(),
+            preparedBy: sheet.preparedBy,
+            totalAmount: sheet.totalPoAmount,
+            vendorName: sheet.partyName,
+            status: indentSheet.map((s) => s.poNumber?.toString().trim()).includes(sheet.poNumber)
+                ? receivedSheet.map((r) => r.poNumber?.toString().trim()).includes(sheet.poNumber)
+                    ? 'Recieved'
+                    : 'Not Recieved'
+                : 'Revised',
+        }));
+
+        // Filter for unique poNumbers
+        const uniqueData = data.filter((item, index, self) =>
+            index === self.findIndex((t) => t.poNumber === item.poNumber)
         );
-    }, [indentSheet]);
+
+        setHistoryData(uniqueData);
+    }, [indentSheet, poMasterSheet, receivedSheet]);
 
     // Creating table columns
     const historyColumns: ColumnDef<HistoryData>[] = [
@@ -85,7 +90,7 @@ export default () => {
             <DataTable
                 data={historyData}
                 columns={historyColumns}
-                searchFields={['product', 'poNumber']}
+                searchFields={['poNumber', 'vendorName']}
                 dataLoading={poMasterLoading}
                 className='h-[80dvh]'
             />

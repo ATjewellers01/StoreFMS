@@ -1,6 +1,6 @@
 import { type ColumnDef, type Row } from '@tanstack/react-table';
 import DataTable from '../element/DataTable';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useSheets } from '@/context/SheetsContext';
 import { DownloadOutlined } from "@ant-design/icons";
 
@@ -44,6 +44,7 @@ interface ApproveTableData {
     date: string;
     attachment: string;
     specifications: string;
+    indentType: string;
 }
 
 interface HistoryData {
@@ -71,6 +72,10 @@ export default () => {
     const [editingRow, setEditingRow] = useState<string | null>(null);
     const [editValues, setEditValues] = useState<Partial<HistoryData>>({});
     const [loading, setLoading] = useState(false);
+    const [checkedRows, setCheckedRows] = useState<Set<string>>(new Set());
+    const [editQty, setEditQty] = useState<Record<string, number>>({});
+    const [editVendorType, setEditVendorType] = useState<Record<string, string>>({});
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Fetching table data
     useEffect(() => {
@@ -95,6 +100,7 @@ export default () => {
                         ? (sheet.vendorType as ApproveTableData['vendorType'])
                         : 'Pending',
                     date: formatDate(new Date(sheet.timestamp)),
+                    indentType: sheet.indentType || '',
                 }))
         );
         setHistoryData(
@@ -206,33 +212,134 @@ export default () => {
         setEditValues(prev => ({ ...prev, [field]: value }));
     };
 
+    const handleBulkApprove = async () => {
+        if (checkedRows.size === 0) {
+            toast.error("Please select at least one row");
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const updates = tableData
+                .filter(item => checkedRows.has(item.indentNo))
+                .map(item => {
+                    const originalSheetItem = indentSheet.find(s => s.indentNumber === item.indentNo);
+                    if (!originalSheetItem) return null;
+
+                    const approvedQuantity = editQty[item.indentNo] ?? item.quantity;
+                    const vendorType = editVendorType[item.indentNo] ?? item.vendorType;
+
+                    return {
+                        ...originalSheetItem,
+                        vendorType,
+                        approvedQuantity,
+                        actual1: new Date().toISOString(),
+                        lastUpdated: new Date().toISOString()
+                    };
+                })
+                .filter((item): item is NonNullable<typeof item> => item !== null);
+
+            await postToSheet(updates as any, 'update');
+            toast.success(`Successfully approved ${checkedRows.size} indents`);
+            
+            // Reset states
+            setCheckedRows(new Set());
+            setEditQty({});
+            setEditVendorType({});
+            
+            // Refresh data
+            updateIndentSheet();
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to approve indents");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     // Creating table columns
-    const columns: ColumnDef<ApproveTableData>[] = [
-        ...(user.indentApprovalAction
-            ? [
-                {
-                    header: 'Action',
-                    id: 'action',
-                    cell: ({ row }: { row: Row<ApproveTableData> }) => {
-                        const indent = row.original;
-                        return (
-                            <div>
-                                <DialogTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => {
-                                            setSelectedIndent(indent);
-                                        }}
-                                    >
-                                        Approve
-                                    </Button>
-                                </DialogTrigger>
-                            </div>
-                        );
-                    },
-                },
-            ]
-            : []),
+    const columns: ColumnDef<ApproveTableData>[] = useMemo(() => [
+        {
+            id: 'select',
+            header: () => (
+                <input
+                    type="checkbox"
+                    checked={tableData.length > 0 && checkedRows.size === tableData.length}
+                    onChange={(e) => {
+                        const isChecked = e.target.checked;
+                        if (isChecked) {
+                            const allNos = tableData.map(d => d.indentNo);
+                            setCheckedRows(new Set(allNos));
+                        } else {
+                            setCheckedRows(new Set());
+                        }
+                    }}
+                    className="h-4 w-4 cursor-pointer accent-primary"
+                />
+            ),
+            cell: ({ row }: { row: Row<ApproveTableData> }) => {
+                const indentNo = row.original.indentNo;
+                const isChecked = checkedRows.has(indentNo);
+                return (
+                    <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                            setCheckedRows((prev) => {
+                                const next = new Set(prev);
+                                if (e.target.checked) {
+                                    next.add(indentNo);
+                                } else {
+                                    next.delete(indentNo);
+                                }
+                                return next;
+                            });
+                        }}
+                        className="h-4 w-4 cursor-pointer accent-primary"
+                    />
+                );
+            },
+        },
+        {
+            id: 'vendorType',
+            header: 'Vendor Type',
+            cell: ({ row, table }: { row: Row<ApproveTableData>, table: any }) => {
+                const indentNo = row.original.indentNo;
+                const { editVendorType, setEditVendorType } = table.options.meta;
+                const currentValue = editVendorType[indentNo] ?? row.original.vendorType;
+                // Only use the value if it's one of the valid options, otherwise use undefined to show placeholder
+                const value = ['Regular', 'Three Party', 'Reject'].includes(currentValue) ? currentValue : undefined;
+                
+                return (
+                    <Select
+                        value={value}
+                        onValueChange={(val) => {
+                            const isChecked = checkedRows.has(indentNo);
+                            if (isChecked) {
+                                setEditVendorType((prev: any) => {
+                                    const next = { ...prev };
+                                    checkedRows.forEach(no => {
+                                        next[no] = val;
+                                    });
+                                    return next;
+                                });
+                            } else {
+                                setEditVendorType((prev: any) => ({ ...prev, [indentNo]: val }));
+                            }
+                        }}
+                    >
+                        <SelectTrigger className="w-[140px]">
+                            <SelectValue placeholder="Select Vendor Type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Regular">Regular</SelectItem>
+                            <SelectItem value="Three Party">Three Party</SelectItem>
+                            <SelectItem value="Reject">Reject</SelectItem>
+                        </SelectContent>
+                    </Select>
+                );
+            },
+        },
         { accessorKey: 'indentNo', header: 'Indent No.' },
         { accessorKey: 'indenter', header: 'Indenter' },
         { accessorKey: 'department', header: 'Department' },
@@ -245,7 +352,31 @@ export default () => {
                 </div>
             ),
         },
-        { accessorKey: 'quantity', header: 'Quantity' },
+        {
+            accessorKey: 'quantity',
+            header: 'Quantity',
+            cell: ({ row, table }: { row: Row<ApproveTableData>, table: any }) => {
+                const indentNo = row.original.indentNo;
+                const isChecked = checkedRows.has(indentNo);
+                const { editQty, setEditQty } = table.options.meta;
+                const qty = editQty[indentNo] ?? row.original.quantity;
+                return isChecked ? (
+                    <Input
+                        type="number"
+                        value={qty}
+                        onChange={(e) =>
+                            setEditQty((prev: any) => ({
+                                ...prev,
+                                [indentNo]: Number(e.target.value),
+                            }))
+                        }
+                        className="w-20"
+                    />
+                ) : (
+                    <span>{row.original.quantity}</span>
+                );
+            },
+        },
         { accessorKey: 'uom', header: 'UOM' },
         {
             accessorKey: 'specifications',
@@ -285,14 +416,6 @@ export default () => {
             },
         },
         {
-            accessorKey: 'vendorType',
-            header: 'Status',
-            cell: ({ row }: { row: Row<ApproveTableData> }) => {
-                const status = row.original.vendorType;
-                return <Pill variant="pending">{status}</Pill>;
-            },
-        },
-        {
             accessorKey: 'attachment',
             header: 'Attachment',
             cell: ({ row }: { row: Row<ApproveTableData> }) => {
@@ -307,9 +430,9 @@ export default () => {
             },
         },
         { accessorKey: 'date', header: 'Date' },
-    ];
+    ], [tableData, checkedRows, indentSheet, updateIndentSheet]);
 
-    const historyColumns: ColumnDef<HistoryData>[] = [
+    const historyColumns: ColumnDef<HistoryData>[] = useMemo(() => [
         { accessorKey: 'indentNo', header: 'Indent No.' },
         { accessorKey: 'indenter', header: 'Indenter' },
         { accessorKey: 'department', header: 'Department' },
@@ -463,7 +586,7 @@ export default () => {
                 },
             ]
             : []),
-    ];
+    ], [editingRow, editValues, user.indentApprovalAction, indentSheet, updateIndentSheet]);
 
     // Creating Form
     const schema = z
@@ -540,25 +663,43 @@ export default () => {
                             columns={columns}
                             searchFields={['product', 'department', 'indenter', 'vendorType']}
                             dataLoading={indentLoading}
+                            meta={{
+                                editQty,
+                                setEditQty,
+                                editVendorType,
+                                setEditVendorType
+                            }}
                             extraActions={
-                                <Button
-                                    variant="default"  // or "outline", "secondary", etc. based on your design
-                                    onClick={onDownloadClick}
-                                    style={{
-                                        background: "linear-gradient(90deg, #4CAF50, #2E7D32)",
-                                        border: "none",
-                                        borderRadius: "8px",
-                                        padding: "0 16px",
-                                        fontWeight: "bold",
-                                        boxShadow: "0 4px 8px rgba(0,0,0,0.15)",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "8px",
-                                    }}
-                                >
-                                    <DownloadOutlined />
-                                    {loading ? "Downloading..." : "Download"}
-                                </Button>
+                                <div className="flex gap-2">
+                                    {checkedRows.size > 0 && (
+                                        <Button
+                                            variant="default"
+                                            onClick={handleBulkApprove}
+                                            disabled={isSubmitting}
+                                            className="bg-primary hover:bg-primary/90 text-white font-bold"
+                                        >
+                                            {isSubmitting ? "Approving..." : `Approve Selected (${checkedRows.size})`}
+                                        </Button>
+                                    )}
+                                    <Button
+                                        variant="default"  // or "outline", "secondary", etc. based on your design
+                                        onClick={onDownloadClick}
+                                        style={{
+                                            background: "linear-gradient(90deg, #4CAF50, #2E7D32)",
+                                            border: "none",
+                                            borderRadius: "8px",
+                                            padding: "0 16px",
+                                            fontWeight: "bold",
+                                            boxShadow: "0 4px 8px rgba(0,0,0,0.15)",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "8px",
+                                        }}
+                                    >
+                                        <DownloadOutlined />
+                                        {loading ? "Downloading..." : "Download"}
+                                    </Button>
+                                </div>
                             }
                         />
                     </TabsContent>
