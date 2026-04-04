@@ -210,12 +210,11 @@ export default () => {
                         regularData.length > 0 && 
                         checkedRows.size === regularData.length
                     }
-                    onChange={(e) => {
-                        const isChecked = e.target.checked;
-                        if (isChecked) {
-                            setCheckedRows(new Set(regularData.map(d => d.indentNo)));
-                        } else {
+                    onChange={() => {
+                        if (checkedRows.size > 0) {
                             setCheckedRows(new Set());
+                        } else {
+                            setCheckedRows(new Set(regularData.map(d => d.indentNo)));
                         }
                     }}
                     className="h-4 w-4 cursor-pointer accent-primary"
