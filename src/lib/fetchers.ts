@@ -192,7 +192,7 @@ export async function fetchSheet(
         const paymentTerms = new Set<string>();
         const defaultTerms = new Set<string>();
         const approveVendorNames = new Set<string>();
-        const uoms = new Set<string>(); // Add this line
+        const uoms = new Set<string>();
 
         for (let i = 0; i < length; i++) {
             const vendorName = data.vendorName?.[i];
@@ -203,14 +203,15 @@ export async function fetchSheet(
                 vendors.push({ vendorName, gstin, address, email });
             }
 
+            // Read vendor names from column A (vendorName field)
+            if (data.vendorName?.[i]) {
+                approveVendorNames.add(data.vendorName[i]);
+            }
+
             if (data.department?.[i]) departments.add(data.department[i]);
             if (data.paymentTerm?.[i]) paymentTerms.add(data.paymentTerm[i]);
             if (data.defaultTerms?.[i]) defaultTerms.add(data.defaultTerms[i]);
 
-            // Add this block for approve vendor names (column S)
-            if (data.approveVendorName?.[i]) {
-                approveVendorNames.add(data.approveVendorName[i]);
-            }
             if (data.uom?.[i]) {
                 uoms.add(data.uom[i]);
             }

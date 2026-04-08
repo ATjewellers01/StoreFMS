@@ -274,7 +274,7 @@ export default () => {
                             <SelectValue placeholder="Select Vendor" />
                         </SelectTrigger>
                         <SelectContent>
-                            {options?.vendors?.map(({ vendorName }, i) => (
+                            {options?.approveVendorNames?.map((vendorName, i) => (
                                 <SelectItem key={i} value={vendorName}>
                                     {vendorName}
                                 </SelectItem>
@@ -1057,8 +1057,8 @@ export default () => {
                                                             </SelectTrigger>
                                                         </FormControl>
                                                         <SelectContent>
-                                                            {options?.vendors?.map(
-                                                                ({ vendorName }, i) => (
+                                                            {options?.approveVendorNames?.map(
+                                                                (vendorName, i) => (
                                                                     <SelectItem
                                                                         key={i}
                                                                         value={vendorName}

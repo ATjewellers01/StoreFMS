@@ -213,20 +213,20 @@ export const SheetsProvider = ({ children }: { children: React.ReactNode }) => {
  function updateMasterSheet() {
     fetchSheet('MASTER').then((res) => {
         console.log('Master sheet response:', res);
-        
+
         // Type guard to ensure res is MasterSheet
         const masterSheetData = res as MasterSheet;
-        
-        // Ab backend se directly approveVendorNames aa jayega
+
+        // Filter and deduplicate vendor names from column A
         let approveVendorNames: string[] = [];
-        
+
         if (masterSheetData && masterSheetData.approveVendorNames && Array.isArray(masterSheetData.approveVendorNames)) {
             approveVendorNames = masterSheetData.approveVendorNames
                 .filter(name => name && name.trim() !== '')
                 .filter((name, index, arr) => arr.indexOf(name) === index);
         }
-        
-        console.log('Approve vendor names from column S:', approveVendorNames);
+
+        console.log('Vendor names from column A:', approveVendorNames);
 
         let uoms: string[] = [];
         if (masterSheetData && masterSheetData.uoms && Array.isArray(masterSheetData.uoms)) {
