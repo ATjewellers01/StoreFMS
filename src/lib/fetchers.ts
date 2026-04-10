@@ -203,9 +203,9 @@ export async function fetchSheet(
                 vendors.push({ vendorName, gstin, address, email });
             }
 
-            // Read vendor names from column A (vendorName field)
-            if (data.vendorName?.[i]) {
-                approveVendorNames.add(data.vendorName[i]);
+            // Read vendor names from column S (approveVendorName field)
+            if (data.approveVendorName?.[i]) {
+                approveVendorNames.add(data.approveVendorName[i]);
             }
 
             if (data.department?.[i]) departments.add(data.department[i]);
@@ -237,8 +237,8 @@ export async function fetchSheet(
             billingAddress: data.billingAddress,
             destinationAddress: data.destinationAddress,
             defaultTerms: [...defaultTerms],
-            approveVendorNames: [...approveVendorNames], // Add this line
-            uoms: [...uoms] // Add this line
+            approveVendorNames: [...approveVendorNames], // mapped to column S
+            uoms: [...uoms] // mapped to column T
         };
     }
     if (sheetName === 'RECEIVED' || sheetName === 'PO MASTER' || sheetName === 'INVENTORY') {
