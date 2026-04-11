@@ -94,6 +94,7 @@ export type ReceivedSheet = {
 };
 
 export type InventorySheet = {
+    [x: string]: any;
     groupHead: string;
     itemName: string;
     uom: string;
