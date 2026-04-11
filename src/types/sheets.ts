@@ -90,6 +90,7 @@ export type ReceivedSheet = {
     anyTransportations: string;
     transporterName: string;
     transportingAmount: number;
+    productName: string;
 };
 
 export type InventorySheet = {

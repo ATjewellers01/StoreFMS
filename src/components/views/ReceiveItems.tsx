@@ -1835,49 +1835,59 @@ export default () => {
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        setTableData(
-            indentSheet
-                .filter((i) => i.planned5 !== '' && i.actual5 === '')
-                .map((i) => ({
-                    indentNumber: i.indentNumber,
-                    poNumber: i.poNumber,
-                    uom: i.uom,
-                    poCopy: i.poCopy,
-                    vendor: i.approvedVendorName,
-                    quantity: i.approvedQuantity,
-                    poDate: i.actual4,
-                    product: i.productName,
-                }))
+        const data: RecieveItemsData[] = indentSheet
+            .filter((i) => i.planned5 !== '' && i.actual5 === '')
+            .map((i) => ({
+                indentNumber: i.indentNumber,
+                poNumber: i.poNumber,
+                uom: i.uom,
+                poCopy: i.poCopy,
+                vendor: i.approvedVendorName,
+                quantity: i.approvedQuantity,
+                poDate: i.actual4,
+                product: i.productName,
+            }));
+
+        // Filter for unique poNumbers
+        const uniqueData = data.filter((item, index, self) =>
+            index === self.findIndex((t) => t.poNumber === item.poNumber)
         );
+
+        setTableData(uniqueData);
     }, [indentSheet]);
 
     useEffect(() => {
-        setHistoryData(
-            receivedSheet.map((r) => {
-                const indent = indentSheet.find((i) => i.indentNumber === r.indentNumber);
-                return {
-                    receiveStatus: r.receivedStatus,
-                    poNumber: r.poNumber,
-                    poDate: formatDate(new Date(r.poDate)),
-                    vendor: indent?.approvedVendorName || '',
-                    product: indent?.productName || '',
-                    orderQuantity: indent?.approvedQuantity || 0,
-                    uom: indent?.uom || '',
-                    photoOfProduct: r.photoOfProduct,
-                    receivedDate: formatDate(new Date(r.timestamp)),
-                    receivedQuantity: r.receivedQuantity,
-                    warrantyStatus: r.warrantyStatus,
-                    warrantyEndDate: r.endDate ? formatDate(new Date(r.endDate)) : '',
-                    billStatus: r.billStatus,
-                    billNumber: r.billNumber,
-                    billAmount: r.billAmount,
-                    photoOfBill: r.photoOfBill,
-                    anyTransport: r.anyTransportations,
-                    transporterName: r.transporterName,
-                    transportingAmount: r.transportingAmount,
-                };
-            })
+        const data: HistoryData[] = receivedSheet.map((r) => {
+            const indent = indentSheet.find((i) => i.indentNumber === r.indentNumber);
+            return {
+                receiveStatus: r.receivedStatus,
+                poNumber: r.poNumber,
+                poDate: formatDate(new Date(r.poDate)),
+                vendor: indent?.approvedVendorName || '',
+                product: indent?.productName || '',
+                orderQuantity: indent?.approvedQuantity || 0,
+                uom: indent?.uom || '',
+                photoOfProduct: r.photoOfProduct,
+                receivedDate: formatDate(new Date(r.timestamp)),
+                receivedQuantity: r.receivedQuantity,
+                warrantyStatus: r.warrantyStatus,
+                warrantyEndDate: r.endDate ? formatDate(new Date(r.endDate)) : '',
+                billStatus: r.billStatus,
+                billNumber: r.billNumber,
+                billAmount: r.billAmount,
+                photoOfBill: r.photoOfBill,
+                anyTransport: r.anyTransportations,
+                transporterName: r.transporterName,
+                transportingAmount: r.transportingAmount,
+            };
+        });
+
+        // Filter for unique poNumbers
+        const uniqueData = data.filter((item, index, self) =>
+            index === self.findIndex((t) => t.poNumber === item.poNumber)
         );
+
+        setHistoryData(uniqueData);
     }, [receivedSheet, indentSheet]);
 
     const handleDownload = (data: any[]) => {
@@ -2034,9 +2044,6 @@ export default () => {
         })
         .superRefine((data, ctx) => {
             if (data.status === 'Received') {
-                if (data.quantity === undefined) {
-                    ctx.addIssue({ path: ['quantity'], code: z.ZodIssueCode.custom });
-                }
                 if (data.warrantyStatus === undefined) {
                     ctx.addIssue({ path: ['warrantyStatus'], code: z.ZodIssueCode.custom });
                 }
@@ -2095,10 +2102,12 @@ export default () => {
     const anyTransport = form.watch('anyTransport');
     const warrantyStatus = form.watch('warrantyStatus');
 
+    const relatedItems = indentSheet.filter(i => 
+        selectedIndent && i.poNumber === selectedIndent.poNumber && i.planned5 !== '' && i.actual5 === ''
+    );
+
     useEffect(() => {
-        if (selectedIndent) {
-            form.setValue('quantity', selectedIndent.quantity);
-        } else if (!openDialog) {
+        if (!openDialog) {
             form.reset({
                 billNo: '',
                 quantity: undefined,
@@ -2119,63 +2128,65 @@ export default () => {
     async function onSubmit(values: z.infer<typeof schema>) {
         try {
             setLoading(true);
-            
-            // Create row object with ONLY the fields that match ReceivedSheet exactly
-            // Using non-null assertion and proper defaults to prevent undefined values
-            const row: ReceivedSheet = {
-                timestamp: new Date().toISOString(),
-                indentNumber: selectedIndent?.indentNumber ?? '',
-                poDate: '', // Keep blank as requested
-                poNumber: selectedIndent?.poNumber ?? '',
-                vendor: selectedIndent?.vendor ?? '',
-                receivedStatus: values.status ?? 'Not Received',
-                receivedQuantity: values.quantity ?? 0,
-                uom: selectedIndent?.uom ?? '',
-                photoOfProduct: '', // Will be updated if file uploaded
-                warrantyStatus: values.warrantyStatus ?? 'Not Any',
-                endDate: values.warrantyDate?.toISOString() ?? '',
-                billStatus: values.billReceived ?? 'Not Received',
-                billNumber: values.billNo ?? '',
-                billAmount: values.billAmount ?? 0,
-                photoOfBill: '', // Will be updated if file uploaded
-                anyTransportations: values.anyTransport ?? 'No',
-                transporterName: values.transporterName ?? '',
-                transportingAmount: values.transportingAmount ?? 0,
-            };
 
             console.log('Processing uploads...');
             
+            let photoOfProductUrl = '';
             // Handle file uploads
             if (values.photoOfProduct) {
                 console.log('Uploading product photo...');
-                row.photoOfProduct = await uploadFile(
+                photoOfProductUrl = await uploadFile(
                     values.photoOfProduct,
                     import.meta.env.VITE_PRODUCT_PHOTO_FOLDER
                 );
             }
 
+            let photoOfBillUrl = '';
             if (values.photoOfBill) {
                 console.log('Uploading bill photo...');
-                row.photoOfBill = await uploadFile(
+                photoOfBillUrl = await uploadFile(
                     values.photoOfBill,
                     import.meta.env.VITE_BILL_PHOTO_FOLDER
                 );
             }
+
+            const rowsToInsert = relatedItems.map((item) => {
+                const row: ReceivedSheet = {
+                    timestamp: new Date().toISOString(),
+                    indentNumber: item.indentNumber ?? '',
+                    poDate: '', // Keep blank as requested
+                    poNumber: item.poNumber ?? '',
+                    vendor: item.approvedVendorName ?? '',
+                    receivedStatus: values.status ?? 'Not Received',
+                    receivedQuantity: Number(item.approvedQuantity) ?? 0,
+                    uom: item.uom ?? '',
+                    photoOfProduct: photoOfProductUrl,
+                    warrantyStatus: values.warrantyStatus ?? 'Not Any',
+                    endDate: values.warrantyDate?.toISOString() ?? '',
+                    billStatus: values.billReceived ?? 'Not Received',
+                    billNumber: values.billNo ?? '',
+                    billAmount: values.billAmount ?? 0,
+                    photoOfBill: photoOfBillUrl,
+                    anyTransportations: values.anyTransport ?? 'No',
+                    transporterName: values.transporterName ?? '',
+                    transportingAmount: values.transportingAmount ?? 0,
+                    productName: item.productName ?? '',
+                };
+
+                const cleanRow = Object.fromEntries(
+                    Object.entries(row).map(([key, value]) => [
+                        key, 
+                        value === undefined || value === null ? '' : value
+                    ])
+                ) as ReceivedSheet;
+                
+                return cleanRow;
+            });
             
-            console.log('Submitting row to RECEIVED sheet:', row);
-            
-            // Ensure no undefined values by creating a clean object
-            const cleanRow = Object.fromEntries(
-                Object.entries(row).map(([key, value]) => [
-                    key, 
-                    value === undefined || value === null ? '' : value
-                ])
-            ) as ReceivedSheet;
-            
-            console.log('Clean row being sent:', cleanRow);
+            console.log('Clean rows being sent:', rowsToInsert);
             
             // Insert into RECEIVED sheet
-            await postToSheet([cleanRow], 'insert', 'RECEIVED');
+            await postToSheet(rowsToInsert, 'insert', 'RECEIVED');
 
             console.log('Data submitted to RECEIVED sheet successfully');
             
@@ -2273,35 +2284,36 @@ export default () => {
                                     </DialogDescription>
                                 </DialogHeader>
                                 
-                                <div className="bg-muted p-4 rounded-md grid gap-3">
-                                    <h3 className="text-lg font-bold">Item Details</h3>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 bg-muted rounded-md gap-3">
-                                        <div className="space-y-1">
-                                            <p className="font-medium text-nowrap">Indent Number</p>
-                                            <p className="text-sm font-light">
-                                                {selectedIndent.indentNumber}
-                                            </p>
+                                <div className="bg-muted p-4 rounded-md grid gap-3 mb-4">
+                                    <div className="flex gap-16">
+                                        <div>
+                                            <h3 className="font-semibold pb-1">PO Number</h3>
+                                            <span className="text-sm font-light text-slate-500">{selectedIndent.poNumber}</span>
                                         </div>
-                                        <div className="space-y-1">
-                                            <p className="font-medium">Item Name</p>
-                                            <p className="text-sm font-light">
-                                                {selectedIndent.product}
-                                            </p>
+                                        <div>
+                                            <h3 className="font-semibold pb-1">Related Items</h3>
+                                            <span className="text-sm font-light text-slate-500">{relatedItems.length} items</span>
                                         </div>
-                                        <div className="space-y-1">
-                                            <p className="font-medium text-nowrap">
-                                                Ordered Quantity
-                                            </p>
-                                            <p className="text-sm font-light">
-                                                {selectedIndent.quantity}
-                                            </p>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="font-medium text-nowrap">UOM</p>
-                                            <p className="text-sm font-light">
-                                                {selectedIndent.uom}
-                                            </p>
-                                        </div>
+                                    </div>
+                                    <div className="border rounded-md overflow-hidden mt-4">
+                                        <table className="w-full text-sm text-left">
+                                            <thead className="bg-white">
+                                                <tr>
+                                                    <th className="px-4 py-3 font-semibold border-b">Indent No</th>
+                                                    <th className="px-4 py-3 font-semibold border-b">Product</th>
+                                                    <th className="px-4 py-3 font-semibold text-right border-b">Qty</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {relatedItems.map((item, index) => (
+                                                    <tr key={index} className="bg-white">
+                                                        <td className="px-4 py-3 font-mono text-xs border-b">{item.indentNumber}</td>
+                                                        <td className="px-4 py-3 uppercase border-b">{item.productName}</td>
+                                                        <td className="px-4 py-3 text-right border-b">{item.approvedQuantity} {item.uom}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
                                     </div>
                                 </div>
                                 
@@ -2331,25 +2343,6 @@ export default () => {
                                                             </SelectItem>
                                                         </SelectContent>
                                                     </Select>
-                                                </FormControl>
-                                            </FormItem>
-                                        )}
-                                    />
-
-                                    <FormField
-                                        control={form.control}
-                                        name="quantity"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Received Quantity</FormLabel>
-                                                <FormControl>
-                                                    <Input
-                                                        type="number"
-                                                        placeholder="Enter received quantity"
-                                                        max={selectedIndent.quantity}
-                                                        disabled={status !== 'Received'}
-                                                        {...field}
-                                                    />
                                                 </FormControl>
                                             </FormItem>
                                         )}
