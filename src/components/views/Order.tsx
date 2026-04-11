@@ -15,7 +15,7 @@ interface HistoryData {
     preparedBy: string;
     approvedBy: string;
     totalAmount: number;
-    status: 'Revised' | 'Not Recieved' | 'Recieved';
+    status: 'Revised' | 'Not Received' | 'Received';
     quotationNumber: string;
     quotationDate: string;
     enquiryNumber: string;
