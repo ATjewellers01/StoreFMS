@@ -92,7 +92,7 @@ export default () => {
                 totalPrice: i.totalPrice,
                 uom: i.uom,
                 rate: i.individualRate,
-                current: i.current,
+                current: i.currentStock || i['Current Stock'] || i.current || 0,
                 status: i.colorCode,
                 indented: i.indented,
                 opening: i.opening,
@@ -101,7 +101,7 @@ export default () => {
                 groupHead: i.groupHead,
                 purchaseQuantity: i.purchaseQuantity,
                 approved: i.approved,
-                outQuantity: i.outQuantity,
+                outQuantity: i.outQuantity || 0,
             }))
         );
     }, [inventorySheet]);

@@ -1833,6 +1833,7 @@ export default () => {
     const [selectedIndent, setSelectedIndent] = useState<RecieveItemsData | null>(null);
     const [openDialog, setOpenDialog] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [modifiedQuantities, setModifiedQuantities] = useState<Record<string, number>>({});
 
     useEffect(() => {
         const data: RecieveItemsData[] = indentSheet
@@ -2108,6 +2109,7 @@ export default () => {
 
     useEffect(() => {
         if (!openDialog) {
+            setModifiedQuantities({});
             form.reset({
                 billNo: '',
                 quantity: undefined,
@@ -2158,7 +2160,7 @@ export default () => {
                     poNumber: item.poNumber ?? '',
                     vendor: item.approvedVendorName ?? '',
                     receivedStatus: values.status ?? 'Not Received',
-                    receivedQuantity: Number(item.approvedQuantity) ?? 0,
+                    receivedQuantity: modifiedQuantities[item.indentNumber ?? ''] ?? Number(item.approvedQuantity) ?? 0,
                     uom: item.uom ?? '',
                     photoOfProduct: photoOfProductUrl,
                     warrantyStatus: values.warrantyStatus ?? 'Not Any',
@@ -2309,7 +2311,24 @@ export default () => {
                                                     <tr key={index} className="bg-white">
                                                         <td className="px-4 py-3 font-mono text-xs border-b">{item.indentNumber}</td>
                                                         <td className="px-4 py-3 uppercase border-b">{item.productName}</td>
-                                                        <td className="px-4 py-3 text-right border-b">{item.approvedQuantity} {item.uom}</td>
+                                                        <td className="px-4 py-3 text-right border-b space-x-2">
+                                                            <Input
+                                                                type="number"
+                                                                className="w-20 inline-block h-8 px-2"
+                                                                defaultValue={item.approvedQuantity}
+                                                                max={item.approvedQuantity}
+                                                                min={0}
+                                                                disabled={status !== 'Received'}
+                                                                onChange={(e) => {
+                                                                    const val = parseFloat(e.target.value);
+                                                                    setModifiedQuantities(prev => ({
+                                                                        ...prev,
+                                                                        [item.indentNumber ?? '']: val
+                                                                    }));
+                                                                }}
+                                                            />
+                                                            <span>{item.uom}</span>
+                                                        </td>
                                                     </tr>
                                                 ))}
                                             </tbody>
